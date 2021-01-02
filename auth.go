@@ -11,29 +11,29 @@ import (
 )
 
 type SignClaims struct {
-	uid        string
-	sid        string
-	privateKey string
-	method     string
-	uri        string
-	body       string
-	scope      string
-	expire     int64
+	Uid        string
+	Sid        string
+	PrivateKey string
+	Method     string
+	Uri        string
+	Body       string
+	Scope      string
+	Expire     int64
 }
 
 func SignAuthenticationToken(claims SignClaims) (string, error) {
-	sum := sha256.Sum256([]byte(claims.method + claims.uri + claims.body))
+	sum := sha256.Sum256([]byte(claims.Method + claims.Uri + claims.Body))
 	token := jwt.NewWithClaims(jwt.SigningMethodRS512, jwt.MapClaims{
-		"uid": claims.uid,
-		"sid": claims.sid,
+		"uid": claims.Uid,
+		"sid": claims.Sid,
 		"iat": time.Now().UTC().Unix(),
-		"exp": claims.expire,
+		"exp": claims.Expire,
 		"jti": UuidNewV4().String(),
 		"sig": hex.EncodeToString(sum[:]),
-		"scp": claims.scope,
+		"scp": claims.Scope,
 	})
 
-	block, _ := pem.Decode([]byte(claims.privateKey))
+	block, _ := pem.Decode([]byte(claims.PrivateKey))
 	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return "", err
