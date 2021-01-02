@@ -5,24 +5,35 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
-	"github.com/dgrijalva/jwt-go"
 	"time"
+
+	"github.com/dgrijalva/jwt-go"
 )
 
-func SignAuthenticationToken(uid, sid, privateKey, method, uri, body string) (string, error) {
-	expire := time.Now().UTC().Add(time.Hour * 24 * 30 * 3)
-	sum := sha256.Sum256([]byte(method + uri + body))
+type SignClaims struct {
+	uid        string
+	sid        string
+	privateKey string
+	method     string
+	uri        string
+	body       string
+	scope      string
+	expire     int64
+}
+
+func SignAuthenticationToken(claims SignClaims) (string, error) {
+	sum := sha256.Sum256([]byte(claims.method + claims.uri + claims.body))
 	token := jwt.NewWithClaims(jwt.SigningMethodRS512, jwt.MapClaims{
-		"uid": uid,
-		"sid": sid,
+		"uid": claims.uid,
+		"sid": claims.sid,
 		"iat": time.Now().UTC().Unix(),
-		"exp": expire.Unix(),
+		"exp": claims.expire,
 		"jti": UuidNewV4().String(),
 		"sig": hex.EncodeToString(sum[:]),
-		"scp": "FULL",
+		"scp": claims.scope,
 	})
 
-	block, _ := pem.Decode([]byte(privateKey))
+	block, _ := pem.Decode([]byte(claims.privateKey))
 	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return "", err

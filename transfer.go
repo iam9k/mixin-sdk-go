@@ -3,11 +3,12 @@ package mixin
 import (
 	"context"
 	"encoding/json"
-	"github.com/shopspring/decimal"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
-type TransferInput struct {
+type TransferData struct {
 	AssetId     string
 	RecipientId string
 	Amount      decimal.Decimal
@@ -15,17 +16,26 @@ type TransferInput struct {
 	Memo        string
 }
 
-func CreateTransfer(ctx context.Context, in *TransferInput, uid, sid, sessionKey, pin, pinToken string) error {
-	encryptedPIN, err := EncryptPIN(ctx, pin, pinToken, sid, sessionKey, uint64(time.Now().UnixNano()))
+type TransferParams struct {
+	data       TransferData
+	uid        string
+	sid        string
+	privateKey string
+	pin        string
+	pinToken   string
+}
+
+func CreateTransfer(ctx context.Context, params TransferParams) error {
+	encryptedPIN, err := EncryptPIN(ctx, params.pin, params.pinToken, params.sid, params.privateKey, uint64(time.Now().UnixNano()))
 	if err != nil {
 		return err
 	}
 	data, err := json.Marshal(map[string]interface{}{
-		"asset_id":    in.AssetId,
-		"opponent_id": in.RecipientId,
-		"amount":      in.Amount.String(),
-		"trace_id":    in.TraceId,
-		"memo":        in.Memo,
+		"asset_id":    params.data.AssetId,
+		"opponent_id": params.data.RecipientId,
+		"amount":      params.data.Amount.String(),
+		"trace_id":    params.data.TraceId,
+		"memo":        params.data.Memo,
 		"pin":         encryptedPIN,
 	})
 	if err != nil {
@@ -34,7 +44,18 @@ func CreateTransfer(ctx context.Context, in *TransferInput, uid, sid, sessionKey
 
 	path := "/transfers"
 
-	token, err := SignAuthenticationToken(uid, sid, sessionKey, "POST", path, string(data))
+	signClaims := SignClaims{
+		uid:        params.uid,
+		sid:        params.sid,
+		privateKey: params.privateKey,
+		method:     "POST",
+		uri:        path,
+		body:       string(data),
+		scope:      "FULL",
+		expire:     time.Now().Add(time.Hour * 24 * 30).Unix(),
+	}
+
+	token, err := SignAuthenticationToken(signClaims)
 	if err != nil {
 		return err
 	}
